@@ -6,9 +6,10 @@ const PREFIX = process.env.API_PREFIX
 exports.routesConfig = function(app) {
     // admin auth
     app.post(`/${PREFIX}/admin/user_register`, AdminController.UserRegister)
-    app.post(`/${PREFIX}/user/login`, AdminController.UserLogin)
     app.post(`/${PREFIX}/admin/register`, AdminController.AdminRegister)
     app.post(`/${PREFIX}/admin/login`, AdminController.AdminLogin)
+    app.post(`/${PREFIX}/user/login`, AdminController.UserLogin)
+    app.get(`/${PREFIX}/user/summary`, AuthMiddleware, AbsenController.DataSummary)
 
     // admi divisi
     app.post(`/${PREFIX}/admin/create_divisi`, AuthMiddleware, AdminController.CreateDivisi)
@@ -19,5 +20,7 @@ exports.routesConfig = function(app) {
 
     // abs route
     app.post(`/${PREFIX}/user/presence`, AuthMiddleware, AbsenController.Presence)
+    app.post(`/${PREFIX}/user/cuti`, AuthMiddleware, AbsenController.LeavePermission)
     app.get(`/${PREFIX}/admin/presence_list`, AuthMiddleware, AbsenController.PresenceList)
+    app.post(`/${PREFIX}/admin/presence/approve`, AuthMiddleware, AbsenController.PresenceApprove)
 }

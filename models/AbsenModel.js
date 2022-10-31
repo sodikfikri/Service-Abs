@@ -4,6 +4,24 @@ const moment        = require('moment')
 
 class AbsenModel {
 
+    static GetSummaryData(user_id, start_date, end_date) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const sql_presence = `SELECT * FROM db_absensi.presensi WHERE user_id = ${user_id} AND status = 2 AND is_valid = 1 AND (generated_date BETWEEN '${start_date}' AND '${end_date}') GROUP BY generated_date`;
+                const result_presence = await mysql_helpers.query(DB, sql_presence)
+
+                const sql_cuti = `SELECT * FROM db_absensi.cuti WHERE user_id = ${user_id} AND status = 2 AND (start_date BETWEEN '${start_date}' AND '${end_date}') GROUP BY start_date`
+                const result_cuti = await mysql_helpers.query(DB, sql_cuti)
+                const result = {
+                    presence: result_presence.length,
+                    cuti: result_cuti.length
+                }
+                resolve(result)
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
     static PresenceCek(user_id, date, type) {
         return new Promise(async (resolve, reject) => {
             try {
@@ -40,8 +58,51 @@ class AbsenModel {
     static GetListPresence() {
         return new Promise(async (resolve, reject) => {
             try {
-                const query = `SELECT * FROM presensi WHERE generated_date = '${moment().format('YYYY-MM-DD')}'`
+                const query = `SELECT *, users.fullname user_name, status.name status_name 
+                                FROM 
+                                    presensi 
+                                JOIN status 
+                                    ON presensi.status = status.id 
+                                JOIN users
+                                    ON presensi.user_id = users.id
+                                WHERE DATE_FORMAT(generated_date, "%Y-%m") = '${moment().format('YYYY-MM')}'`
                 const result = await mysql_helpers.query(DB, query)
+
+                if (result.length != 0) {
+                    for(let key in result) {
+                        result[key].generated_date = moment(result[key].generated_date).format('YYYY-MM-DD')
+                    }
+                }
+                resolve(result)
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
+    static InsLeavePermission(data) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const result = await mysql_helpers.insert('cuti', data);
+                resolve(result);
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
+    static CkApprove(id) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const result = await mysql_helpers.getWhere('*', 'presensi', 'id', id);
+                resolve(result)
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
+    static PresenceApprove(data, id) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const result = await mysql_helpers.update('presensi', data, 'user_id', id);
                 resolve(result)
             } catch (error) {
                 reject(error)
