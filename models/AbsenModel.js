@@ -49,7 +49,10 @@ class AbsenModel {
         return new Promise(async (resolve, reject) => {
             try {
                 const result = await mysql_helpers.insert('presensi', data)
-                resolve(result)
+                resolve({
+                    type: 'success',
+                    result
+                });
             } catch (error) {
                 reject(error)
             }
@@ -58,7 +61,7 @@ class AbsenModel {
     static GetListPresence() {
         return new Promise(async (resolve, reject) => {
             try {
-                const query = `SELECT *, users.fullname user_name, status.name status_name 
+                const query = `SELECT presensi.*, DATE_FORMAT(presensi.generated_date, "%Y%m%d") dt, users.fullname user_name, status.name status_name 
                                 FROM 
                                     presensi 
                                 JOIN status 
@@ -79,11 +82,24 @@ class AbsenModel {
             }
         })
     }
+    static LeavePermissionCk(idx) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const result = await mysql_helpers.getWhere('*', 'cuti', 'id', idx)
+                resolve(result);
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
     static InsLeavePermission(data) {
         return new Promise(async (resolve, reject) => {
             try {
                 const result = await mysql_helpers.insert('cuti', data);
-                resolve(result);
+                resolve({
+                    type: 'success',
+                    result
+                });
             } catch (error) {
                 reject(error)
             }
@@ -103,13 +119,56 @@ class AbsenModel {
         return new Promise(async (resolve, reject) => {
             try {
                 const result = await mysql_helpers.update('presensi', data, 'user_id', id);
-                resolve(result)
+                resolve({
+                    type: 'success',
+                    result
+                })
             } catch (error) {
                 reject(error)
             }
         })
     }
+    static UpdateData(table, data, colName, whereVal) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const result = await mysql_helpers.update(table, data, colName, whereVal)
+                resolve({
+                    type: 'success',
+                    result
+                });
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
+    static PermissionApprove(data) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const conn = await mysql_helpers.createConnection();
+                await mysql_helpers.createTrx(conn)
 
+                let dataApprove = {
+                    status: 2, 
+                    approve_at: moment().unix()
+                }
+                const approve = await mysql_helpers.queryTrx(conn, 'UPDATE cuti SET ? WHERE id = ?', [dataApprove, parseInt(data.cuti_id)])
+                
+                const dataCount = {
+                    count: parseInt(data.usrCount) - parseInt(data.diff_date)
+                }
+
+                const uptUsr = await mysql_helpers.queryTrx(conn, 'UPDATE users SET ? WHERE id = ?', [dataCount, data.usrid])
+                
+                await mysql_helpers.commit(conn);
+
+                resolve({
+                    type: 'success',
+                })
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
 }
 
 module.exports = AbsenModel

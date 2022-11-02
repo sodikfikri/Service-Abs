@@ -23,4 +23,6 @@ exports.routesConfig = function(app) {
     app.post(`/${PREFIX}/user/cuti`, AuthMiddleware, AbsenController.LeavePermission)
     app.get(`/${PREFIX}/admin/presence_list`, AuthMiddleware, AbsenController.PresenceList)
     app.post(`/${PREFIX}/admin/presence/approve`, AuthMiddleware, AbsenController.PresenceApprove)
+    app.post(`/${PREFIX}/admin/presence/reject`, AuthMiddleware, AbsenController.PresenceReject)
+    app.post(`/${PREFIX}/admin/cuti/approve`, AuthMiddleware, AbsenController.PermissionApprove)
 }

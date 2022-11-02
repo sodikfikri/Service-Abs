@@ -7,7 +7,7 @@ const mysql_helpers = {
         const query = `INSERT INTO ${table} SET ?;`;
         dbMysql.getConnection(function (err, conn) {
           if (err) {
-            conn.release();
+            if (conn) conn.release();
             reject(err);
             return false;
           }
@@ -20,9 +20,10 @@ const mysql_helpers = {
             conn.query(query, data, function (err, result) {
               if (err) {
                 conn.rollback(async function () {
+                  conn.release();
                   reject(err);
-                  return false;
                 });
+                return false;
               }
               // Number(result.insertId);
               conn.commit(async function (err) {
@@ -32,15 +33,12 @@ const mysql_helpers = {
                   return false;
                 }
                 conn.release();
-                resolve({
-                  type: 'success',
-                  result,
-                });
+                resolve(result);
                 return true;
               });
             });
           });
-  
+
         });
       })
     },
@@ -49,7 +47,7 @@ const mysql_helpers = {
         const query = `UPDATE ${table} SET ? WHERE ${colId} = ?;`;
         dbMysql.getConnection(function (err, conn) {
           if (err) {
-            conn.release();
+            if (conn) conn.release();
             reject(err);
             return false;
           }
@@ -62,9 +60,10 @@ const mysql_helpers = {
             conn.query(query, [data, valId], function (err, result) {
               if (err) {
                 conn.rollback(async function () {
+                  conn.release();
                   reject(err);
-                  return false;
                 });
+                return false;
               }
               conn.commit(async function (err) {
                 if (err) {
@@ -73,90 +72,70 @@ const mysql_helpers = {
                   return false;
                 }
                 conn.release();
-                resolve({
-                  type: 'success',
-                  result,
-                });
+                resolve(result);
                 return true;
               });
             });
           });
-  
+
         });
       })
     },
-    delete: async function(table, column, values) {
+    delete: async function (table, colId, valId) {
       return new Promise((resolve, reject) => {
-        const query = `DELETE FROM ${table} WHERE ${column} IN (${values})`
-        dbMysql.getConnection(function(err, conn) {
+        const query = `DELETE FROM ${table} WHERE ${colId} = ?;`;
+        dbMysql.getConnection(function (err, conn) {
           if (err) {
-            conn.release()
-            reject(err)
-            return false
+            if (conn) conn.release();
+            reject(err);
+            return false;
           }
-          conn.beginTransaction(async function(err) {
+          conn.beginTransaction(async function (err) {
             if (err) {
-              conn.release()
-              reject(err)
-              return false
+              conn.release();
+              reject(err);
+              return false;
             }
-            conn.query(query, function(err, result) {
+            conn.query(query, [valId], function (err, result) {
               if (err) {
                 conn.rollback(async function () {
+                  conn.release();
                   reject(err);
-                  return false;
                 });
+                return false;
               }
-              conn.commit(async function(err) {
+              conn.commit(async function (err) {
                 if (err) {
                   conn.release();
                   reject(err);
                   return false;
                 }
                 conn.release();
-                resolve({
-                  type: 'success',
-                  result,
-                });
+                resolve(result);
                 return true;
-              })
-            })
-          })
-        })
-      })
-    },
-    get: async function (table, select) {
-      return new Promise((resolve, reject) => {
-        const query = `SELECT ${select} FROM ${table};`;
-        dbMysql.query(query, [], function (err, result) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve({
-              type: 'success',
-              result,
+              });
             });
-          }
-        })
-      })
-    },
-    getWhere: async function(select, table, whereName, whereValue) {
-      return new Promise((resolve, reject) => {
-          const sql = `SELECT ${select} FROM ${table} WHERE ${whereName} IN (?)`
-          dbMysql.query(sql, [whereValue], function (err, result) {
-            if (err) {
-              reject(err)
-            } else {
-              resolve(result)
-            }
-          })
+          });
+
+        });
       })
     },
     createConnection: async function () {
       return new Promise((resolve, reject) => {
         dbMysql.getConnection(function (err, conn) {
           if (err) {
-            // close connection
+            if (conn) conn.release();
+            reject(err);
+            return false;
+          }
+          resolve(conn);
+        });
+      })
+    },
+    createTrx: async function (conn) {
+      return new Promise((resolve, reject) => {
+        conn.beginTransaction(async function (err) {
+          if (err) {
             conn.release();
             reject(err);
             return false;
@@ -165,31 +144,28 @@ const mysql_helpers = {
         });
       })
     },
-    createTrx: async function(conn) {
+    queryTrx: async function (conn, query = '', params = []) {
       return new Promise((resolve, reject) => {
-        conn.beginTransaction(async function(err) {
+        conn.query(query, params, function (err, result) {
           if (err) {
-            // close connection
-            conn.release()
-            reject(err)
-            return false
-          } else {
-            resolve(conn)
+            conn.rollback(async function () {
+              conn.release();
+              reject(err);
+            });
+            return false;
           }
-        })
+          // Number(result.insertId);
+          resolve(result);
+        });
       })
     },
-    queryTrx: async function(conn, query = '', params = []) {
+    query: async function (conn, query = '', params = []) {
       return new Promise((resolve, reject) => {
-        conn.query(query, params, function(err, result) {
-          if (err) {
-            conn.rollback(async function(){
-              reject(err)
-              return false
-            })
-          }
-          resolve(result)
-        })
+        conn.query(query, params, function (err, result) {
+          if (err) return reject(err);
+          // Number(result.insertId);
+          resolve(result);
+        });
       })
     },
     commit: async function (conn) {
@@ -210,17 +186,20 @@ const mysql_helpers = {
         conn.rollback(async function () {
           conn.release();
           reject(err);
-          return false;
         });
+        return false;
       })
     },
-    query: async function (conn, query = '', params = []) {
+    getWhere: async function(select, table, whereName, whereValue) {
       return new Promise((resolve, reject) => {
-        conn.query(query, params, function (err, result) {
-          if (err) return reject(err);
-          // Number(result.insertId);
-          resolve(result);
-        });
+          const sql = `SELECT ${select} FROM ${table} WHERE ${whereName} IN (?)`
+          dbMysql.query(sql, [whereValue], function (err, result) {
+            if (err) {
+              reject(err)
+            } else {
+              resolve(result)
+            }
+          })
       })
     },
 }

@@ -7,7 +7,7 @@ const firebase_helpers = {
     firebaseInit: function() {
         const firebase = require('firebase-admin');
 
-        const account = require(path.join(__dirname, '../files/keys/boncengabsensi-firebase-adminsdk-wqf50-71c033b2c8.json')); // langsung json
+        const account = require(path.join(__dirname, '../files/keys/boncengabsensi-firebase-adminsdk-wqf50-b469e169a0.json')); // langsung json
         return firebase.initializeApp({
             credential: firebase.credential.cert(account),
             databaseURL: 'https://boncengabsensi-default-rtdb.asia-southeast1.firebasedatabase.app',

@@ -14,6 +14,9 @@ class msgErr_helpers {
             case '400':
                 apiResult = {...response[400]}
                 break;
+            case '404':
+                apiResult = {...response[404]}
+                break;
             case '401':
                 apiResult = {...response[401]}
                 break;

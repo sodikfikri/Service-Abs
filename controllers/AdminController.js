@@ -181,6 +181,7 @@ class AdminController {
             }
 
             apiResult = msg_helpers.SetMessage('200', 'Login has success full')
+            apiResult.data = find[0]
             apiResult.token = await token_helpers.sign({ id: find[0].id })
             return res.status(200).json(apiResult)
 

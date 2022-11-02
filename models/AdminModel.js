@@ -17,7 +17,10 @@ class AdminModel {
         return new Promise(async (resolve, reject) => {
             try {
                 const result = await mysql_helpers.insert('users', data)
-                resolve(result)
+                resolve({
+                    type: 'success',
+                    result
+                });
             } catch (error) {
                 reject(error)
             }
@@ -27,7 +30,10 @@ class AdminModel {
         return new Promise(async (resolve, reject) => {
             try {
                 const result = await mysql_helpers.update(table, data, colName, whereVal)
-                resolve(result)
+                resolve({
+                    type: 'success',
+                    result
+                });
             } catch (error) {
                 reject(error)
             }
@@ -47,7 +53,10 @@ class AdminModel {
         return new Promise(async (resolve, reject) => {
             try {
                 const result = await mysql_helpers.insert('admin', data)
-                resolve(result)
+                resolve({
+                    type: 'success',
+                    result
+                });
             } catch (error) {
                 reject(error)
             }
@@ -57,7 +66,10 @@ class AdminModel {
         return new Promise(async (resolve, reject) => {
             try {
                 const result = await mysql_helpers.insert('divisi', data)
-                resolve(result)
+                resolve({
+                    type: 'success',
+                    result
+                });
             } catch (error) {
                 reject(err)
             }
@@ -87,7 +99,10 @@ class AdminModel {
         return new Promise(async (resolve, reject) => {
             try {
                 const result = await mysql_helpers.update('divisi', data, 'id', id)
-                resolve(result)
+                resolve({
+                    type: 'success',
+                    result
+                });
             } catch (error) {
                 reject(error)
             }
@@ -97,7 +112,10 @@ class AdminModel {
         return new Promise(async (resolve, reject) => {
             try {
                 const result = await mysql_helpers.update('divisi', data, 'id', id)
-                resolve(result)
+                resolve({
+                    type: 'success',
+                    result
+                });
             } catch (error) {
                 reject(error)
             }
