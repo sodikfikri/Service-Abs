@@ -169,6 +169,19 @@ class AbsenModel {
             }
         })
     }
+    static PerminssionReject(data, cuti_id) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const result = await mysql_helpers.update('cuti', data, 'id', cuti_id)
+                resolve({
+                    type: 'success',
+                    result
+                })
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
 }
 
 module.exports = AbsenModel

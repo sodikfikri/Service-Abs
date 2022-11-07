@@ -235,7 +235,7 @@ class AbsenController {
                 return res.status(200).json(apiResult)
             }
             // firebase need to check
-            firebase_helpers.sendNotiftoDevice('ejPO1NwuReWRjzrX79WeKN:APA91bEms4Qx30tMDeBtjHH3VtYrG9GbJPO3rkBk2Rd0mQtwnsL3pcxF0QcbjCol4K5Cd2SgHogVls8wCsCMDDqE0kMCfoXTXETKz4jPzWv9nY4OhDxRKzWPUJGkLNhbq1ZhNEWmVL3X', {
+            firebase_helpers.sendNotiftoDevice(usrCk[0].fcm_token, {
                 data: {
                     user_name: 'nama kamu',
                     message: 'Absen kamu telah di setijui',
@@ -353,11 +353,66 @@ class AbsenController {
             firebase_helpers.sendNotiftoDevice(usrCk[0].fcm_token, {
                 data: {
                     user_name: '' + usrCk[0].fullname,
-                    message: 'Absen kamu telah di setujui',
+                    message: 'Pengajuan cuti kamu telah di setujui',
                 }
             });
 
             apiResult = msg_helpers.SetMessage('200', 'Success approve data')
+            return res.status(200).json(apiResult)
+        } catch (error) {
+            apiResult = msg_helpers.SetMessage('500', error.message)
+            return res.status(500).json(apiResult)
+        }
+    }
+    async PermissionReject(req, res) {
+        let apiResult = {}
+        try {
+            const {cuti_id, reason} = req.body
+            // return res.json(req.body)
+            const input = {
+                cuti_id,
+                reason
+            }
+            const rules = {
+                cuti_id: 'required|integer',
+                reason: 'required'
+            }
+
+            const inputValidation = new validator(input, rules)
+            if(inputValidation.fails()) {
+                apiResult = msg_helpers.SetMessage('400', Object.values(inputValidation.errors.all())[0][0]) // get first message
+                return res.status(200).json(apiResult)
+            }
+            let params = {}
+            // cek data
+            const Ck = await AbsenModel.LeavePermissionCk(cuti_id)
+            if (Ck.length == 0) {
+                apiResult = msg_helpers.SetMessage('404', 'Data not found!')
+                return res.status(200).json(apiResult)
+            }
+            const usrCk = await AdminModel.UserCekData('id', Ck[0].user_id)
+            if (usrCk.length == 0) {
+                apiResult = msg_helpers.SetMessage('404', 'User not found!')
+                return res.status(200).json(apiResult)
+            }
+            // set params
+            params.status = 3
+            params.reason_reject = reason
+
+            let reject = await AbsenModel.PerminssionReject(params, cuti_id)
+            if (reject.type != 'success') {
+                apiResult = msg_helpers.SetMessage('400', 'Fail to reject data!')
+                return res.status(200).json(apiResult)
+            }
+
+            firebase_helpers.sendNotiftoDevice(usrCk[0].fcm_token, {
+                data: {
+                    user_name: '' + usrCk[0].fullname,
+                    message: 'Pengajuan cuti kamu tidak disetujui',
+                }
+            });
+            
+            apiResult = msg_helpers.SetMessage('200', 'Success reject data')
             return res.status(200).json(apiResult)
         } catch (error) {
             apiResult = msg_helpers.SetMessage('500', error.message)
