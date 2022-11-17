@@ -62,6 +62,6 @@ const response = {
         message: 'error',
       }
     },
-  };
+};
   
-  module.exports = response;
+module.exports = response;

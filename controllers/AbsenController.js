@@ -154,41 +154,39 @@ class AbsenController {
         let apiResult = {}
         try {
             const getData = await AbsenModel.GetListPresence()
-
             let dataArr = [], groupDate = []
-            let no = 0
-            for(let row of getData) {
-                if (groupDate.includes(row.dt)) {
-                    dataArr[no - 1].out = {
-                        time: row.generated_time,
-                        location: row.location
+            for(let row in getData) {
+                if (groupDate.includes(getData[row].dt)) {
+                    dataArr[dataArr.length - 1].out = {
+                        time: getData[row].generated_time,
+                        location: getData[row].location
                     }
                 } 
                 else {
-                    groupDate.push(row.dt);
-                    if (row.in == 1) {
+                    groupDate.push(getData[row].dt);
+                    if (getData[row].in == 1) {
                         dataArr.push({
-                            generated_date: row.generated_date,
-                            status: row.status,
+                            generated_date: getData[row].generated_date,
+                            status: getData[row].status,
                             in: {
-                                time: row.generated_time,
-                                location: row.location
+                                time: getData[row].generated_time,
+                                location: getData[row].location
                             },
                         })
-                    } else {
+                    } 
+                    else {
                         dataArr.push({
-                            generated_date: row.generated_date,
-                            status: row.status,
+                            generated_date: getData[row].generated_date,
+                            status: getData[row].status,
                             out: {
-                                time: row.generated_time,
-                                location: row.location
+                                time: getData[row].generated_time,
+                                location: getData[row].location
                             },
                         })
                     }
                 }
-                no++
+                // no++
             }
-
             apiResult = getData.length == 0 ? msg_helpers.SetMessage('400', 'Data not found') : msg_helpers.SetMessage('200', 'Success get data presence')
             apiResult.data = dataArr
 

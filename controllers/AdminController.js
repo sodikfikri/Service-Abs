@@ -376,7 +376,15 @@ class AdminController {
             return res.status(500).json(apiResult)
         }
     }
-
+    async AbsList(req, res) {
+        let apiResult = {}
+        try {
+            
+        } catch (error) {
+            apiResult = msg_helpers.SetMessage('500', error.message)
+            return res.status(500).json(apiResult)
+        }
+    }
 }
 
 module.exports = new AdminController()

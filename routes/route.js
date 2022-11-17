@@ -1,6 +1,7 @@
 const AbsenController   = require("../controllers/AbsenController")
 const AdminController   = require("../controllers/AdminController")
 const AuthMiddleware    = require("../middleware/AuthMiddleware")
+
 const PREFIX = process.env.API_PREFIX
 
 exports.routesConfig = function(app) {
@@ -24,5 +25,5 @@ exports.routesConfig = function(app) {
     app.post(`/${PREFIX}/admin/presence/reject`, AuthMiddleware, AbsenController.PresenceReject)
     app.post(`/${PREFIX}/admin/cuti/approve`, AuthMiddleware, AbsenController.PermissionApprove)
     app.post(`/${PREFIX}/admin/cuti/reject`, AuthMiddleware, AbsenController.PermissionReject)
-    
+
 }
