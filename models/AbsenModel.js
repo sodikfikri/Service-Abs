@@ -58,7 +58,7 @@ class AbsenModel {
             }
         })
     }
-    static GetListPresence() {
+    static GetListPresence(user_id) {
         return new Promise(async (resolve, reject) => {
             try {
                 const query = `SELECT presensi.*, DATE_FORMAT(presensi.generated_date, "%Y%m%d") dt, users.fullname user_name, status.name status_name 
@@ -68,7 +68,7 @@ class AbsenModel {
                                     ON presensi.status = status.id 
                                 JOIN users
                                     ON presensi.user_id = users.id
-                                WHERE DATE_FORMAT(generated_date, "%Y-%m") = '${moment().format('YYYY-MM')}'`
+                                WHERE presensi.user_id = ${user_id} AND DATE_FORMAT(generated_date, "%Y-%m") = '${moment().format('YYYY-MM')}'`
                 const result = await mysql_helpers.query(DB, query)
 
                 if (result.length != 0) {
@@ -177,6 +177,60 @@ class AbsenModel {
                     type: 'success',
                     result
                 })
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
+
+    // for admin
+    static GetListAbs(data) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const query = `SELECT presensi.*, DATE_FORMAT(presensi.generated_date, "%Y%m%d") dt, users.fullname user_name, status.name status_name 
+                                FROM 
+                                    presensi 
+                                JOIN status 
+                                    ON presensi.status = status.id 
+                                JOIN users
+                                    ON presensi.user_id = users.id
+                                WHERE DATE_FORMAT(generated_date, "%Y-%m-%d") BETWEEN '${data.start_date}' AND '${data.end_date}'`
+                // resolve(query)
+                const result = await mysql_helpers.query(DB, query)
+                if (result.length != 0) {
+                    for(let key in result) {
+                        result[key].generated_date = moment(result[key].generated_date).format('YYYY-MM-DD')
+                    }
+                }
+                resolve(result)
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
+    static GetAbsData(data) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const query = `SELECT * FROM presensi WHERE status = 2 AND DATE_FORMAT(generated_date, "%Y-%m-%d") BETWEEN '${data.start_date}' AND '${data.end_date}'`
+                const result = await mysql_helpers.query(DB, query)
+                if (result.length != 0) {
+                    for(let key in result) {
+                        result[key].generated_date = moment(result[key].generated_date).format('DD/MM/YYYY')
+                    }
+                }
+                resolve(result)
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
+    static GetUserName(id) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const query = `SELECT * FROM users WHERE id = ${id}`
+                const result = await mysql_helpers.query(DB, query);
+
+                resolve(result[0])
             } catch (error) {
                 reject(error)
             }
