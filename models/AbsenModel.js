@@ -7,14 +7,19 @@ class AbsenModel {
     static GetSummaryData(user_id, start_date, end_date) {
         return new Promise(async (resolve, reject) => {
             try {
-                const sql_presence = `SELECT * FROM db_absensi.presensi WHERE user_id = ${user_id} AND status = 2 AND is_valid = 1 AND (generated_date BETWEEN '${start_date}' AND '${end_date}') GROUP BY generated_date`;
+                const sql_presence = `SELECT * FROM service_abs.presensi WHERE user_id = ${user_id} AND status = 2 AND is_valid = 1 AND (generated_date BETWEEN '${start_date}' AND '${end_date}') GROUP BY generated_date`;
                 const result_presence = await mysql_helpers.query(DB, sql_presence)
 
-                const sql_cuti = `SELECT * FROM db_absensi.cuti WHERE user_id = ${user_id} AND status = 2 AND (start_date BETWEEN '${start_date}' AND '${end_date}') GROUP BY start_date`
+                const sql_cuti = `SELECT * FROM service_abs.cuti WHERE user_id = ${user_id} AND status = 2 AND (start_date BETWEEN '${start_date}' AND '${end_date}') GROUP BY start_date`
                 const result_cuti = await mysql_helpers.query(DB, sql_cuti)
+
+                const count_cuti = `SELECT * FROM service_abs.users WHERE id = ${user_id}`
+                const result_count = await mysql_helpers.query(DB, count_cuti)
+
                 const result = {
                     presence: result_presence.length,
-                    cuti: result_cuti.length
+                    cuti: result_cuti.length,
+                    count_cuti: result_count[0].count
                 }
                 resolve(result)
             } catch (error) {
@@ -26,7 +31,8 @@ class AbsenModel {
         return new Promise(async (resolve, reject) => {
             try {
                 const cats = type == 1 ? 'abs.in = 1' : 'abs.out = 1'
-                const query = `SELECT abs.* FROM db_absensi.presensi abs WHERE abs.user_id = ${user_id} AND abs.generated_date = '${date}' AND ${cats}`;
+                const query = `SELECT abs.* FROM service_abs.presensi abs WHERE abs.user_id = ${user_id} AND abs.generated_date = '${date}' AND ${cats}`;
+                console.log(query);
                 const result = await mysql_helpers.query(DB, query)
                 resolve(result)
             } catch (error) {
@@ -82,6 +88,31 @@ class AbsenModel {
             }
         })
     }
+    static  GetPermissionList(user_id) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const query = `SELECT 
+                                    cuti.start_date, cuti.end_date, cuti.reason, cuti.reason_reject reason_refusing,
+                                    stts.name status_name, cuti.approve_at, cuti.reject_at
+                                FROM
+                                    service_abs.cuti cuti 
+                                JOIN service_abs.status stts 
+                                    ON cuti.status = stts.id 
+                                WHERE 
+                                    user_id = ${user_id} AND FROM_UNIXTIME(cuti.created_at, "%Y-%m") = '${moment().format('YYYY-MM')}'`
+                const result = await mysql_helpers.query(DB, query)
+                if (result.length != 0) {
+                    for(let key in result) {
+                        result[key].start_date = moment(result[key].start_date).format('YYYY-MM-DD')
+                        result[key].end_date = moment(result[key].end_date).format('YYYY-MM-DD')
+                    }
+                }
+                resolve(result)
+            } catch (error) {
+                reject(error)
+            }
+        })
+    } 
     static LeavePermissionCk(idx) {
         return new Promise(async (resolve, reject) => {
             try {
@@ -115,10 +146,11 @@ class AbsenModel {
             }
         })
     }
-    static PresenceApprove(data, id) {
+    static PresenceApprove(data, id, gdate) {
         return new Promise(async (resolve, reject) => {
             try {
-                const result = await mysql_helpers.update('presensi', data, 'user_id', id);
+                let query = `UPDATE presensi SET ? WHERE user_id = ? AND generated_date = ?`
+                const result = await mysql_helpers.query(DB, query, [data, id, gdate]);
                 resolve({
                     type: 'success',
                     result
@@ -187,6 +219,7 @@ class AbsenModel {
     static GetListAbs(data) {
         return new Promise(async (resolve, reject) => {
             try {
+                let status = data.status != 0 ? `AND status IN (${data.status})` : ``
                 const query = `SELECT presensi.*, DATE_FORMAT(presensi.generated_date, "%Y%m%d") dt, users.fullname user_name, status.name status_name 
                                 FROM 
                                     presensi 
@@ -194,12 +227,37 @@ class AbsenModel {
                                     ON presensi.status = status.id 
                                 JOIN users
                                     ON presensi.user_id = users.id
-                                WHERE DATE_FORMAT(generated_date, "%Y-%m-%d") BETWEEN '${data.start_date}' AND '${data.end_date}'`
-                // resolve(query)
+                                WHERE FROM_UNIXTIME(presensi.created_at, "%Y-%m-%d") BETWEEN '${data.start_date}' AND '${data.end_date}' ${status}`
+                console.log(query);
                 const result = await mysql_helpers.query(DB, query)
                 if (result.length != 0) {
                     for(let key in result) {
                         result[key].generated_date = moment(result[key].generated_date).format('YYYY-MM-DD')
+                    }
+                }
+                resolve(result)
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
+    static GetListCuti(data) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                let status = data.status != 0 ? `AND status IN (${data.status})` : ``
+                let query = `SELECT cuti.*, users.fullname user_name, status.name status_name FROM service_abs.cuti JOIN status ON cuti.status = status.id JOIN users ON cuti.user_id = users.id
+                            WHERE FROM_UNIXTIME(cuti.created_at, "%Y-%m-%d") BETWEEN '${data.start_date}' AND '${data.end_date}' ${status}`
+                const result = await mysql_helpers.query(DB, query)
+                if (result.length != 0) {
+                    for(let key in result) {
+                        result[key].start_date = moment(result[key].start_date).format('YYYY-MM-DD')
+                        result[key].end_date = moment(result[key].end_date).format('YYYY-MM-DD')
+                        if (result[key].approve_at) {
+                            result[key].approve_at = moment.unix(result[key].approve_at).format('YYYY-MM-DD')
+                        }
+                        if (result[key].reject_at) {
+                            result[key].reject_at = moment(result[key].reject_at).format('YYYY-MM-DD')
+                        }
                     }
                 }
                 resolve(result)
@@ -231,6 +289,82 @@ class AbsenModel {
                 const result = await mysql_helpers.query(DB, query);
 
                 resolve(result[0])
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
+    static AdminSummaryDsb() {
+        return new Promise(async (resolve, reject) => {
+            try {
+                let sql_abs = `SELECT abs.id FROM presensi abs WHERE abs.status = ?`
+                let sql_ct = `SELECT id FROM cuti WHERE status = ?`
+
+                // abs
+                let abs_waiting = await mysql_helpers.query(DB, sql_abs, [1])
+                let abs_approve = await mysql_helpers.query(DB, sql_abs, [2]) 
+                let abs_reject = await mysql_helpers.query(DB, sql_abs, [3])
+
+                // cuti
+                let ct_waiting = await mysql_helpers.query(DB, sql_ct, [1])
+                let ct_approve = await mysql_helpers.query(DB, sql_ct, [2])
+                let ct_reject = await mysql_helpers.query(DB, sql_ct, [3])
+
+                let resp = {
+                    absen: {
+                        waiting: abs_waiting.length,
+                        approve: abs_approve.length,
+                        reject: abs_reject.length
+                    },
+                    cuti: {
+                        waiting: ct_waiting.length,
+                        approve: ct_approve.length,
+                        reject: ct_reject.length
+                    }
+                }
+
+                resolve(resp)
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
+    static GetPermissionRecap(data) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const query = `SELECT 
+                                    users.fullname, DATE_FORMAT(cuti.start_date, "%d-%m-%Y") start_date,
+                                    DATE_FORMAT(cuti.end_date, "%d-%m-%Y") end_date, cuti.reason, cuti.status,
+                                    cuti.approve_at, cuti.reject_at, cuti.reason_reject, status.name status_name
+                                FROM 
+                                    cuti 
+                                JOIN 
+                                    users ON cuti.user_id = users.id 
+                                JOIN
+                                    status ON cuti.status = status.id
+                                WHERE 
+                                    FROM_UNIXTIME(cuti.created_at, "%Y-%m-%d") BETWEEN ? AND ?`
+                const result = await mysql_helpers.query(DB, query, [data.start_date, data.end_date])
+
+                let response = []
+                if (result.length != 0) {
+                    for(let key in result) {
+                        let obj = {
+                            'User Name': result[key].fullname,
+                            'Start Date': result[key].start_date,
+                            'End Date': result[key].end_date,
+                            'Reason': result[key].reason,
+                            'Reason Refusing': result[key].reason_reject,
+                            'Status': result[key].status_name,
+                            'Approve Date': result[key].approve_at ? moment(result[key].approve_at).format('DD-MM-YYYY HH:mm') : '-',
+                            'Reject Date': result[key].reject_at ? moment(result[key].reject_at).format('DD-MM-YYYY HH:mm') : '-',
+                        }
+
+                        response.push(obj)
+                    }
+                }
+
+                resolve(response)
             } catch (error) {
                 reject(error)
             }

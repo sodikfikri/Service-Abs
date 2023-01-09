@@ -3,6 +3,7 @@ const validator     = require('validatorjs')
 const firebase_helpers = require('../helpers/firebase_helpers')
 const functionEx = require('../helpers/functionEx')
 const msg_helpers   = require('../helpers/msg_helpers')
+const mysql_helpers = require('../helpers/mysql_helpers')
 const AbsenModel    = require('../models/AbsenModel')
 const AdminModel    = require('../models/AdminModel')
 class AbsenController {
@@ -34,6 +35,7 @@ class AbsenController {
                 type,
                 location,
             }
+            console.log(input);
             const rules = {
                 user_id: 'required|integer',
                 generated_date: 'required',
@@ -60,11 +62,16 @@ class AbsenController {
             //         return res.status(200).json(apiResult)
             //     }
             // }
-            const presenceCk = await AbsenModel.PresenceCek(user_id, dateNow, type)
-            if (presenceCk.length != 0) {
-                apiResult = msg_helpers.SetMessage('400', `Kamu sudah melakukan absen ${type == 1 ? 'masuk' : 'pulang'} hari ini`)
+            const cekByDatInput = await AbsenModel.PresenceCek(user_id, generated_date, type)
+            if (cekByDatInput.length != 0) {
+                apiResult = msg_helpers.SetMessage('400', `Kamu sudah melakukan absen ${type == 1 ? 'masuk' : 'pulang'} pada tanggal ini`)
                 return res.status(200).json(apiResult)
             }
+            // const presenceCk = await AbsenModel.PresenceCek(user_id, dateNow, type)
+            // if (presenceCk.length != 0) {
+            //     apiResult = msg_helpers.SetMessage('400', `Kamu sudah melakukan absen ${type == 1 ? 'masuk' : 'pulang'} hari ini`)
+            //     return res.status(200).json(apiResult)
+            // }
 
             let ParamsPresence = {
                 created_at: moment().unix(),
@@ -154,10 +161,14 @@ class AbsenController {
         let apiResult = {}
         try {
             const getData = await AbsenModel.GetListPresence(req.auth.id)
+            // return res.json(req.auth.id)
             let dataArr = [], groupDate = []
             for(let row in getData) {
+                console.log(dataArr);
                 if (groupDate.includes(getData[row].dt)) {
-                    dataArr[dataArr.length - 1].out = {
+                    let data = dataArr.find(o => o.dt === `${getData[row].dt}`);
+                    console.log(data);
+                    data.out = {
                         time: getData[row].generated_time,
                         location: getData[row].location
                     }
@@ -168,6 +179,7 @@ class AbsenController {
                         dataArr.push({
                             generated_date: getData[row].generated_date,
                             status: getData[row].status,
+                            dt: getData[row].dt,
                             in: {
                                 time: getData[row].generated_time,
                                 location: getData[row].location
@@ -178,6 +190,7 @@ class AbsenController {
                         dataArr.push({
                             generated_date: getData[row].generated_date,
                             status: getData[row].status,
+                            dt: getData[row].dt,
                             out: {
                                 time: getData[row].generated_time,
                                 location: getData[row].location
@@ -196,16 +209,36 @@ class AbsenController {
             return res.status(500).json(apiResult)
         }
     }
+    async PermissionList(req, res) {
+        let apiResult = {}
+        try {
+            let getData = await AbsenModel.GetPermissionList(req.auth.id);
+            
+            if (getData.length == 0) {
+                apiResult = msg_helpers.SetMessage('404', 'Data not found!')
+                return res.status(200).json(apiResult)
+            }
+            
+            apiResult = msg_helpers.SetMessage('200', 'Success get data')
+            apiResult.data = getData
+            return res.json(apiResult)
+        } catch (error) {
+            apiResult = msg_helpers.SetMessage('500', error.message)
+            return res.status(500).json(apiResult)
+        }
+    }
     async PresenceApprove(req, res) {
         let apiResult = {}
         try {
-            const {presence_id} = req.body
+            const {presence_id, generated_date} = req.body
 
             const input = {
                 presence_id,
+                generated_date
             }
             const rules = {
                 presence_id: 'required|integer',
+                generated_date: 'required'
             }
 
             const inputValidation = new validator(input, rules)
@@ -226,17 +259,21 @@ class AbsenController {
                 return res.status(200).json(apiResult)
             }
             // approve data abs
-            let approved = await AbsenModel.PresenceApprove({ status: 2, is_valid: 1, approve_at: moment().unix(), updated_at: moment().unix() }, CK[0].user_id)
+            let approved = await AbsenModel.PresenceApprove({ status: 2, is_valid: 1, approve_at: moment().unix(), updated_at: moment().unix() }, CK[0].user_id, generated_date)
             // fail response
             if (approved.type != 'success') {
                 apiResult = msg_helpers.SetMessage('400', 'Fail to approve presence!')
                 return res.status(200).json(apiResult)
             }
             // firebase need to check
-            firebase_helpers.sendNotiftoDevice(usrCk[0].fcm_token, {
+            await firebase_helpers.sendNotiftoDevice(usrCk[0].fcm_token, {
+                notification: {
+                    title: '',
+                    body: '',
+                },
                 data: {
-                    user_name: 'nama kamu',
-                    message: 'Absen kamu telah di setijui',
+                    ket_notif: 'Absensi disetujui',
+                    message: 'Absesnsi kamu telah disetujui'
                 }
             });
             // success response
@@ -250,14 +287,16 @@ class AbsenController {
     async PresenceReject(req, res) {
         let apiResult = {}
         try {
-            const {presence_id, reason} = req.body
+            const {presence_id, generated_date, reason} = req.body
             // return res.json(req.body)
             const input = {
                 presence_id,
+                generated_date,
                 reason,
             }
             const rules = {
                 presence_id: 'required|integer',
+                generated_date: 'required',
                 reason: 'required'
             }
 
@@ -279,16 +318,20 @@ class AbsenController {
                 return res.status(200).json(apiResult)
             }
 
-            let reject = await AbsenModel.PresenceApprove({ status: 3, reason: reason, reject_at: moment().unix(), updated_at: moment().unix() }, CK[0].user_id)
+            let reject = await AbsenModel.PresenceApprove({ status: 3, reason: reason, reject_at: moment().unix(), updated_at: moment().unix() }, CK[0].user_id, generated_date)
             if (reject.type != 'success') {
                 apiResult = msg_helpers.SetMessage('400', 'Fail to reject presence!')
                 return res.status(200).json(apiResult)
             }
             // firebase need to check
-            firebase_helpers.sendNotiftoDevice(usrCk[0].fcm_token, {
+            await firebase_helpers.sendNotiftoDevice(usrCk[0].fcm_token, {
+                notification: {
+                    title: '',
+                    body: '',
+                },
                 data: {
-                    user_name: '' + usrCk[0].fullname,
-                    message: 'Absen kamu tidak distujui admin',
+                    ket_notif: 'Absensi ditolak',
+                    message: 'Absesnsi kamu ditolak'
                 }
             });
             // success response
@@ -348,10 +391,14 @@ class AbsenController {
                 return res.status(200).json(apiResult)
             }
 
-            firebase_helpers.sendNotiftoDevice(usrCk[0].fcm_token, {
+            await firebase_helpers.sendNotiftoDevice(usrCk[0].fcm_token, {
+                notification: {
+                    title: '',
+                    body: '',
+                },
                 data: {
-                    user_name: '' + usrCk[0].fullname,
-                    message: 'Pengajuan cuti kamu telah di setujui',
+                    ket_notif: 'Pengajuan cuti disetujui',
+                    message: 'Pengajuan cuti kamu telah disetujui'
                 }
             });
 
@@ -403,13 +450,19 @@ class AbsenController {
                 return res.status(200).json(apiResult)
             }
 
-            firebase_helpers.sendNotiftoDevice(usrCk[0].fcm_token, {
+            console.log('token: ', usrCk[0].fcm_token);
+
+            let send = await firebase_helpers.sendNotiftoDevice(usrCk[0].fcm_token, {
+                notification: {
+                    title: '',
+                    body: '',
+                },
                 data: {
-                    user_name: '' + usrCk[0].fullname,
-                    message: 'Pengajuan cuti kamu tidak disetujui',
+                    ket_notif: 'Pengajuan cuti ditolak',
+                    message: 'Pengajuan cuti kamu ditolak'
                 }
             });
-            
+            console.log('send: ', send);
             apiResult = msg_helpers.SetMessage('200', 'Success reject data')
             return res.status(200).json(apiResult)
         } catch (error) {
@@ -421,14 +474,16 @@ class AbsenController {
     async AbsList(req, res) {
         let apiResult = {}
         try {
-            const {start_date, end_date} = req.query;
+            const {start_date, end_date, status} = req.query;
             const input = {
                 start_date,
-                end_date
+                end_date,
+                status,
             }
             const rules = {
                 start_date: 'required',
-                end_date: 'required'
+                end_date: 'required',
+                status: 'required',
             }
             const inputValidation = new validator(input, rules)
             if(inputValidation.fails()) {
@@ -438,28 +493,32 @@ class AbsenController {
 
             let params = {
                 start_date,
-                end_date
+                end_date,
+                status
             }
             const _data = await AbsenModel.GetListAbs(params)
-
+            // return res.json(_data)
             let dataArr = [], groupDate = []
             for(let row in _data) {
-                if (groupDate.includes(_data[row].dt)) {
-                    dataArr[dataArr.length - 1].out = {
+                if (groupDate.includes(`${_data[row].user_id}_${_data[row].dt}`)) {
+                    // search array
+                    let data = dataArr.find(o => o.combine === `${_data[row].user_id}_${_data[row].dt}`);
+                    data.out = {
                         time: _data[row].generated_time,
                         location: _data[row].location
                     }
                 } 
                 else {
-                    groupDate.push(_data[row].dt);
+                    groupDate.push(`${_data[row].user_id}_${_data[row].dt}`);
                     if (_data[row].in == 1) {
                         dataArr.push({
                             id: _data[row].id,
                             generated_date: _data[row].generated_date,
-                            status: _data[row].status,
+                            status_id: _data[row].status,
                             user_name: _data[row].user_name,
                             status: _data[row].status_name,
                             reason: _data[row].reason,
+                            combine: `${_data[row].user_id}_${_data[row].dt}`,
                             in: {
                                 time: _data[row].generated_time,
                                 location: _data[row].location
@@ -470,10 +529,11 @@ class AbsenController {
                         dataArr.push({
                             id: _data[row].id,
                             generated_date: _data[row].generated_date,
-                            status: _data[row].status,
+                            status_id: _data[row].status,
                             user_name: _data[row].user_name,
                             status: _data[row].status_name,
                             reason: _data[row].reason,
+                            combine: `${_data[row].user_id}_${_data[row].dt}`,
                             out: {
                                 time: _data[row].generated_time,
                                 location: _data[row].location
@@ -483,14 +543,55 @@ class AbsenController {
                 }
                 // no++
             }
-
+            // return res.json(dataArr)
             if (dataArr.length == 0) {
                 apiResult = msg_helpers.SetMessage('404', 'Data not found!')
+                apiResult.data = []
                 return res.status(200).json(apiResult)
             }
 
             apiResult = msg_helpers.SetMessage('200', 'Success get data')
             apiResult.data = dataArr
+            return res.status(200).json(apiResult)
+        } catch (error) {
+            apiResult = msg_helpers.SetMessage('500', error.message)
+            return res.status(500).json(apiResult)
+        }
+    }
+    async ListCuti(req, res) {
+        let apiResult = {}
+        try {
+            const {start_date, end_date, status} = req.query
+            const input = {
+                start_date,
+                end_date,
+                status,
+            }
+            const rules = {
+                start_date: 'required',
+                end_date: 'required',
+                status: 'required',
+            }
+            const inputValidation = new validator(input, rules)
+            if(inputValidation.fails()) {
+                apiResult = msg_helpers.SetMessage('400', Object.values(inputValidation.errors.all())[0][0]) // get first message
+                return res.status(200).json(apiResult)
+            }
+
+            let params = {
+                start_date,
+                end_date,
+                status
+            }
+            let data = await AbsenModel.GetListCuti(params)
+            if (data.length == 0) {
+                apiResult = msg_helpers.SetMessage('404', 'Data not found!')
+                apiResult.data = []
+                return res.status(200).json(apiResult)
+            }
+
+            apiResult = msg_helpers.SetMessage('200', 'Success get data')
+            apiResult.data = data
             return res.status(200).json(apiResult)
         } catch (error) {
             apiResult = msg_helpers.SetMessage('500', error.message)
@@ -523,18 +624,20 @@ class AbsenController {
                 end_date
             }
             const _data = await AbsenModel.GetAbsData(params)
-
+            // return res.json(_data)
             let _arr_group = functionEx.ArrGroup(_data, 'user_id')
-
+            // return res.json(_arr_group)
             for(let _val of _arr_group) {
+                let arrGdate = []
                 for(let key2 in _val) {
                     // create obj data
                     if (typeof final_arr[_val[key2].user_id] == 'undefined') {
                         final_arr[_val[key2].user_id] = {}
                     }
+                    // console.log(_val[key2]);
                     // ambil user data
                     final_arr[_val[key2].user_id]['User'] = (await AbsenModel.GetUserName(_val[key2].user_id)).fullname
-                    // ambil waktu masuk dan waktu pulang kerja
+                    // console.log(`'${_val[key2].generated_date}'`);
                     if (_val[key2].out == '0') {
                         if (typeof final_arr[_val[key2].user_id]['in_'+_val[key2].user_id+'_'+_val[key2].generated_date] == 'undefined') {
                             final_arr[_val[key2].user_id]['in_'+_val[key2].user_id+'_'+_val[key2].generated_date] = _val[key2].generated_time
@@ -547,6 +650,7 @@ class AbsenController {
                         if (typeof final_arr[_val[key2].user_id]['in_'+_val[key2].user_id+'_'+_val[key2].generated_date] == 'undefined') {
                             let calculate =  parseInt(9) / parseInt(9)
                             final_arr[_val[key2].user_id][_val[key2].generated_date] = parseFloat(calculate)
+                            final_arr[_val[key2].user_id][`total_${_val[key2].generated_date}`] = parseFloat(calculate)
                         }
                         // jika absen pada saat masuk dan pulang kerja (complate)
                         else {
@@ -556,34 +660,57 @@ class AbsenController {
                                 calculate = calculate.toFixed(1)
                             // calculate
                             final_arr[_val[key2].user_id][_val[key2].generated_date] = parseFloat(calculate)
+                            final_arr[_val[key2].user_id][`total_${_val[key2].generated_date}`] = parseFloat(calculate)
                         }
                     }
                     // tidak absen pada saat pulang kerja
                     else {
                         let calculate = parseInt(9) / parseInt(9)
                         final_arr[_val[key2].user_id][_val[key2].generated_date] = parseFloat(calculate)
+                        final_arr[_val[key2].user_id][`total_${_val[key2].generated_date}`] = parseFloat(calculate)
                     }
-
-                    if (typeof _val[parseInt(key2)+1] == 'undefined' || _val[parseInt(key2)+1].generated_date != _val[parseInt(key2)].generated_date) {
-                        if (typeof final_arr[_val[key2].user_id]['Total Point'] == 'undefined') {
-                            final_arr[_val[key2].user_id]['Total Point'] = parseFloat(final_arr[_val[key2].user_id][_val[key2].generated_date])
-                        } 
-                        else {
-                            let t_point = final_arr[_val[key2].user_id]['Total Point']
-                                t_point = final_arr[_val[key2].user_id]['Total Point'] += parseFloat(final_arr[_val[key2].user_id][_val[key2].generated_date])
-                                t_point = t_point.toFixed(1)
-                            final_arr[_val[key2].user_id]['Total Point'] = parseFloat(t_point)
-                        }
-                    }
+                    
+                    // if (typeof _val[parseInt(key2)+1] == 'undefined' || _val[parseInt(key2)].generated_date != _val[parseInt(key2)+1].generated_date) {
+                    //     if (typeof final_arr[_val[key2].user_id]['Total Point'] == 'undefined') {
+                    //         final_arr[_val[key2].user_id]['Total Point'] = parseFloat(final_arr[_val[key2].user_id][_val[key2].generated_date])
+                    //     } 
+                    //     else {
+                    //         // if (arrGdate.find(element => element == _val[key2].generated_date) == undefined) {
+                    //             let t_point = final_arr[_val[key2].user_id]['Total Point']
+                    //                 t_point = final_arr[_val[key2].user_id]['Total Point'] += parseFloat(final_arr[_val[key2].user_id][_val[key2].generated_date])
+                    //                 t_point = t_point.toFixed(1)
+                    //             final_arr[_val[key2].user_id]['Total Point'] = parseFloat(t_point)
+                    //         // }
+                    //     }
+                    // }
+                    // console.log(final_arr[_val[key2].user_id]['Total Point']);
+                    // if (arrGdate.find(element => element == _val[key2].generated_date) == undefined) {
+                    //     arrGdate.push(_val[key2].generated_date)
+                    // }
+                    // console.log(arrGdate);
                 }
+                
             }
-
+            // return res.json(final_arr)
             for (let key in final_arr) {
                 for (let okey in final_arr[key]) {
+                    
                     if (okey.search('in_') > -1) {
                         delete final_arr[key][okey]
                     }
                     if (okey.search('out_') > -1) {
+                        delete final_arr[key][okey]
+                    }
+                    if (okey.search('total_') > -1) {
+                        if (typeof final_arr[key]['Total Point'] == 'undefined') {
+                            final_arr[key]['Total Point'] = final_arr[key][okey]
+                        } 
+                        else {
+                            let dt1 = final_arr[key]['Total Point']
+                            let dt2 = final_arr[key][okey]
+                            let total = parseFloat(dt1) + parseFloat(dt2)
+                            final_arr[key]['Total Point'] = total.toFixed(1)
+                        }
                         delete final_arr[key][okey]
                     }
                 }
@@ -593,10 +720,9 @@ class AbsenController {
                 xlsx_data.push(final_arr[i])
             }
 
-            // return res.json(xlsx_data)
-
             if (xlsx_data.length == 0) {
                 apiResult = msg_helpers.SetMessage('404', 'Data not found!')
+                apiResult.data = []
                 return res.status(200).json(apiResult)
             }
             // success response
@@ -604,6 +730,52 @@ class AbsenController {
             apiResult.data = xlsx_data 
             return res.status(200).json(apiResult)
 
+        } catch (error) {
+            apiResult = msg_helpers.SetMessage('500', error.message)
+            return res.status(500).json(apiResult)
+        }
+    }
+    async PermissionRecap(req, res) {
+        let apiResult = {}
+        try {
+            const {start_date, end_date} = req.query
+            const input = {
+                start_date,
+                end_date
+            }
+            const rules = {
+                start_date: 'required',
+                end_date: 'required'
+            }
+            const inputValidation = new validator(input, rules)
+            if(inputValidation.fails()) {
+                apiResult = msg_helpers.SetMessage('400', Object.values(inputValidation.errors.all())[0][0]) // get first message
+                return res.status(200).json(apiResult)
+            }
+            const _get = await AbsenModel.GetPermissionRecap(input)
+            
+            if (_get.length == 0) {
+                apiResult = msg_helpers.SetMessage('404', 'Data not found!')
+                apiResult.data = []
+                return res.status(200).json(apiResult)
+            }
+
+            apiResult = msg_helpers.SetMessage('200', 'Success get data')
+            apiResult.data = _get
+            return res.status(200).json(apiResult)
+        } catch (error) {
+            apiResult = msg_helpers.SetMessage('500', error.message)
+            return res.status(500).json(apiResult)
+        }
+    }
+    async AdminSummaryDashboard(req, res) {
+        let apiResult = {}
+        try {
+            let data = await AbsenModel.AdminSummaryDsb()
+
+            apiResult = msg_helpers.SetMessage('200', 'Success get data')
+            apiResult.data = data
+            return res.status(500).json(apiResult)
         } catch (error) {
             apiResult = msg_helpers.SetMessage('500', error.message)
             return res.status(500).json(apiResult)

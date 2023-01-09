@@ -13,6 +13,16 @@ class AdminModel {
             }
         })
     }
+    static GetUser() {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const result = await mysql_helpers.query(DB, 'SELECT * FROM users WHERE deleted_at = 0')
+                resolve(result)
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
     static InsUserData(data) {
         return new Promise(async (resolve, reject) => {
             try {
@@ -88,7 +98,7 @@ class AdminModel {
     static GetListDivisi() {
         return new Promise(async (resolve, reject) => {
             try {
-                const result = await mysql_helpers.query(DB, 'SELECT * FROM divisi WHERE is_active = 1')
+                const result = await mysql_helpers.query(DB, 'SELECT * FROM divisi')
                 resolve(result)
             } catch (error) {
                 reject(error)
@@ -116,6 +126,17 @@ class AdminModel {
                     type: 'success',
                     result
                 });
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
+    static GetDivisiName() {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const query = `SELECT id, name FROM divisi WHERE is_active = 1`
+                const result = await mysql_helpers.query(DB, query)
+                resolve(result)
             } catch (error) {
                 reject(error)
             }

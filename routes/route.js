@@ -20,6 +20,7 @@ exports.routesConfig = function(app) {
     // abs route
     app.post(`/${PREFIX}/user/presence`, AuthMiddleware, AbsenController.Presence)
     app.post(`/${PREFIX}/user/cuti`, AuthMiddleware, AbsenController.LeavePermission)
+    app.get(`/${PREFIX}/user/cuti_list`, AuthMiddleware, AbsenController.PermissionList)
     app.get(`/${PREFIX}/user/presence_list`, AuthMiddleware, AbsenController.PresenceList)
     app.post(`/${PREFIX}/admin/presence/approve`, AuthMiddleware, AbsenController.PresenceApprove)
     app.post(`/${PREFIX}/admin/presence/reject`, AuthMiddleware, AbsenController.PresenceReject)
@@ -27,7 +28,15 @@ exports.routesConfig = function(app) {
     app.post(`/${PREFIX}/admin/cuti/reject`, AuthMiddleware, AbsenController.PermissionReject)
 
     // abs for admin
+    app.get(`/${PREFIX}/admin/dsb`, AuthMiddleware, AbsenController.AdminSummaryDashboard)
+    app.get(`/${PREFIX}/admin/divisi/ddl`, AuthMiddleware, AdminController.DiveiDDL)
+    app.get(`/${PREFIX}/admin/user_list`, AuthMiddleware, AdminController.UserList)
+    app.get(`/${PREFIX}/admin/user_detail`, AuthMiddleware, AdminController.UserDetail)
     app.get(`/${PREFIX}/admin/presence_list`, AuthMiddleware, AbsenController.AbsList)
+    app.get(`/${PREFIX}/admin/cuti_list`, AuthMiddleware, AbsenController.ListCuti)
     app.get(`/${PREFIX}/admin/abs/recap`, AuthMiddleware, AbsenController.AbsRecap)
+    app.get(`/${PREFIX}/admin/cuti/recap`, AuthMiddleware, AbsenController.PermissionRecap)
+    app.put(`/${PREFIX}/admin/edit_user`, AuthMiddleware, AdminController.UserEdit)
+    app.delete(`/${PREFIX}/admin/delete_user`, AuthMiddleware, AdminController.UserDelete)
 
 }

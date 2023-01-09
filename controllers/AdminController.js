@@ -58,6 +58,7 @@ class AdminController {
                 phone: phone,
                 address: address,
                 divisi_id: divisi_id,
+                count: 12,
                 created_at: moment().unix()
             }
 
@@ -147,6 +148,7 @@ class AdminController {
                 password,
                 fcm_token,
             }
+            console.log(input);
             const rules = {
                 email: 'required|email|max:45',
                 password: 'required|max:50',
@@ -163,7 +165,14 @@ class AdminController {
                 apiResult = msg_helpers.SetMessage('400', 'Account not found!')
                 return res.status(200).json(apiResult)
             }
-
+            if (find[0].is_active == 2) {
+                apiResult = msg_helpers.SetMessage('400', 'Account Inactive!')
+                return res.status(200).json(apiResult)
+            }
+            if (find[0].deleted_at != 0) {
+                apiResult = msg_helpers.SetMessage('400', 'Account has been deleted!')
+                return res.status(200).json(apiResult)
+            }
             const isMatch = await password_helper.compare(password, find[0].password)
             if (!isMatch) {
                 apiResult = msg_helpers.SetMessage('400', 'Your password is wrong!')
@@ -181,7 +190,7 @@ class AdminController {
             }
 
             apiResult = msg_helpers.SetMessage('200', 'Login has success full')
-            apiResult.data = find[0]
+            apiResult.data = await AdminModel.UserCekData('email', email)
             apiResult.token = await token_helpers.sign({ id: find[0].id })
             return res.status(200).json(apiResult)
 
@@ -221,6 +230,151 @@ class AdminController {
 
             apiResult = msg_helpers.SetMessage('200', 'Login has success full')
             apiResult.token = await token_helpers.sign({ id: find[0].id })
+            return res.status(200).json(apiResult)
+
+        } catch (error) {
+            apiResult = msg_helpers.SetMessage('500', error.message)
+            return res.status(500).json(apiResult)
+        }
+    }
+    async UserList(req, res) {
+        let apiResult = {}
+        try {
+            let data = await AdminModel.GetUser()
+            if (data.length == 0) {
+                apiResult = msg_helpers.SetMessage('404', 'Data not found!')
+                return res.status(200).json(apiResult)
+            }
+            apiResult = msg_helpers.SetMessage('200', 'Success get data!')
+            apiResult.data = data
+            return res.status(200).json(apiResult)
+        } catch (error) {
+            apiResult = msg_helpers.SetMessage('500', error.message)
+            return res.status(500).json(apiResult)
+        }
+    }
+    async UserDetail(req, res) {
+        let apiResult = {}
+        try {
+            const {id} = req.query
+            const input = {
+                id,
+            }
+            const rules = {
+                id: 'required|integer'
+            }
+            const inputValidation = new validator(input, rules)
+            if(inputValidation.fails()) {
+                apiResult = msg_helpers.SetMessage('400', Object.values(inputValidation.errors.all())[0][0]) // get first message
+                return res.status(200).json(apiResult)
+            }
+            const find = await AdminModel.UserCekData('id', id)
+            if (find.length == 0) {
+                apiResult = msg_helpers.SetMessage('404', 'Data not found!')
+                return res.status(200).json(apiResult)
+            }
+            apiResult = msg_helpers.SetMessage('200', 'Sucess get data!')
+            apiResult.data = find[0]
+            return res.status(200).json(apiResult)
+        } catch (error) {
+            apiResult = msg_helpers.SetMessage('500', error.message)
+            return res.status(500).json(apiResult)
+        }
+    }
+    async UserEdit(req, res) {
+        let apiResult = {}
+        try {
+            const {id, fullname, email, password, phone, address, divisi_id, is_active} = req.body
+            const input = {
+                id,
+                fullname,
+                email,
+                phone,
+                address,
+                divisi_id,
+                is_active,
+            }
+            const rules = {
+                id: 'required|integer',
+                fullname: 'required|max:150',
+                email: 'required|max:40',
+                phone: 'required',
+                address: 'required',
+                divisi_id: 'required|integer',
+                is_active: 'required|integer',
+            }
+            const inputValidation = new validator(input, rules)
+            if(inputValidation.fails()) {
+                apiResult = msg_helpers.SetMessage('400', Object.values(inputValidation.errors.all())[0][0]) // get first message
+                return res.status(200).json(apiResult)
+            }
+            const find = await AdminModel.UserCekData('id', id)
+            if (find.length == 0) {
+                apiResult = msg_helpers.SetMessage('404', 'Account not found!')
+                return res.status(200).json(apiResult)
+            }
+
+            const params = {
+                fullname,
+                email,
+                phone,
+                address,
+                divisi_id,
+                is_active,
+                updated_at: moment().unix()
+            }
+            const doChange = await AdminModel.UptUserData('users', params, 'id', id);
+            if (password) { // change password
+                let params = {
+                    password: await password_helper.hash(password),
+                }
+                await AdminModel.UptUserData('users', params, 'id', id);
+            }
+            if (doChange.type != 'success') {
+                apiResult = msg_helpers.SetMessage('400', 'Fail to update data!')
+                return res.status(200).json(apiResult)
+            }
+
+            apiResult = msg_helpers.SetMessage('200', 'Success update data!')
+            return res.status(200).json(apiResult)
+        } catch (error) {
+            apiResult = msg_helpers.SetMessage('500', error.message)
+            return res.status(500).json(apiResult)
+        }
+    }
+    async UserDelete(req, res) {
+        let apiResult = {}
+        try {
+            const {id} = req.body
+            const input = {
+                id
+            }
+            const rules = {
+                id: 'required'
+            }
+            const inputValidation = new validator(input, rules)
+            if(inputValidation.fails()) {
+                apiResult = msg_helpers.SetMessage('400', Object.values(inputValidation.errors.all())[0][0]) // get first message
+                return res.status(200).json(apiResult)
+            }
+            
+            const find = await AdminModel.UserCekData('id', id)
+            if (find.length == 0) {
+                apiResult = msg_helpers.SetMessage('400', 'Account not found!')
+                return res.status(200).json(apiResult)
+            }
+
+            let params = {
+                deleted_at: moment().unix()
+            }
+
+            const doChange = await AdminModel.UptUserData('users', params, 'id', id);
+            if (doChange.type != 'success') {
+                apiResult = msg_helpers.SetMessage('400', 'Fail to delete data!')
+                return res.status(200).json(apiResult)
+            }
+
+            apiResult = msg_helpers.SetMessage('200', 'Success delete data!')
             return res.status(200).json(apiResult)
 
         } catch (error) {
@@ -370,6 +524,25 @@ class AdminController {
                 return res.status(200).json(apiResult)
             }
             apiResult = msg_helpers.SetMessage('200', 'Success delete data!')
+            return res.status(200).json(apiResult)
+        } catch (error) {
+            apiResult = msg_helpers.SetMessage('500', error.message)
+            return res.status(500).json(apiResult)
+        }
+    }
+    async DiveiDDL(req, res) {
+        let apiResult = {}
+        try {
+            let data = await AdminModel.GetDivisiName()
+            
+            if (data.length == 0) {
+                apiResult = msg_helpers.SetMessage('404', 'data not found!')
+                apiResult.data = []
+                return res.status(200).json(apiResult)
+            }
+
+            apiResult = msg_helpers.SetMessage('200', 'Success get data!')
+            apiResult.data = data
             return res.status(200).json(apiResult)
         } catch (error) {
             apiResult = msg_helpers.SetMessage('500', error.message)

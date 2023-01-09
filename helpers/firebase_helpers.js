@@ -27,9 +27,10 @@ const firebase_helpers = {
                 }
 
                 const response = await this.firebaseAdmin.messaging().sendToDevice(registrationToken, payload, options);
-                
+                console.log('masuk ke sini');
                 resolve(response);
             } catch (error) {
+                console.log('masuk ke error nih');
                 reject(error)
             }
         })
