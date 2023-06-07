@@ -35,7 +35,6 @@ class AbsenController {
                 type,
                 location,
             }
-            console.log(input);
             const rules = {
                 user_id: 'required|integer',
                 generated_date: 'required',
@@ -164,10 +163,8 @@ class AbsenController {
             // return res.json(req.auth.id)
             let dataArr = [], groupDate = []
             for(let row in getData) {
-                console.log(dataArr);
                 if (groupDate.includes(getData[row].dt)) {
                     let data = dataArr.find(o => o.dt === `${getData[row].dt}`);
-                    console.log(data);
                     data.out = {
                         time: getData[row].generated_time,
                         location: getData[row].location
@@ -276,6 +273,13 @@ class AbsenController {
                     message: 'Absesnsi kamu telah disetujui'
                 }
             });
+
+            await AbsenModel.InsInbox('inbox', {
+                user_id: CK[0].user_id,
+                title: 'Absensi disetujui',
+                body: 'Absesnsi kamu telah disetujui',
+                created_at: moment().unix()
+            })
             // success response
             apiResult = msg_helpers.SetMessage('200', 'Success approve data')
             return res.status(200).json(apiResult)
@@ -334,6 +338,13 @@ class AbsenController {
                     message: 'Absesnsi kamu ditolak'
                 }
             });
+            await AbsenModel.InsInbox('inbox', {
+                user_id: CK[0].user_id,
+                title: 'Absensi ditolak',
+                body: 'Absesnsi kamu ditolak',
+                reason,
+                created_at: moment().unix()
+            })
             // success response
             apiResult = msg_helpers.SetMessage('200', 'Success reject data')
             return res.status(200).json(apiResult)
@@ -402,6 +413,13 @@ class AbsenController {
                 }
             });
 
+            await AbsenModel.InsInbox('inbox', {
+                user_id: Ck[0].user_id,
+                title: 'Pengajian cuti disetujui',
+                body: 'Pengajian cuti kamu telah disetujui',
+                created_at: moment().unix()
+            })
+
             apiResult = msg_helpers.SetMessage('200', 'Success approve data')
             return res.status(200).json(apiResult)
         } catch (error) {
@@ -443,14 +461,13 @@ class AbsenController {
             // set params
             params.status = 3
             params.reason_reject = reason
+            params.reject_at = moment().unix()
 
             let reject = await AbsenModel.PerminssionReject(params, cuti_id)
             if (reject.type != 'success') {
                 apiResult = msg_helpers.SetMessage('400', 'Fail to reject data!')
                 return res.status(200).json(apiResult)
             }
-
-            console.log('token: ', usrCk[0].fcm_token);
 
             let send = await firebase_helpers.sendNotiftoDevice(usrCk[0].fcm_token, {
                 notification: {
@@ -462,7 +479,15 @@ class AbsenController {
                     message: 'Pengajuan cuti kamu ditolak'
                 }
             });
-            console.log('send: ', send);
+
+            await AbsenModel.InsInbox('inbox', {
+                user_id: Ck[0].user_id,
+                title: 'Pengajian cuti ditolak',
+                body: 'Pengajian cuti kamu ditolak',
+                reason,
+                created_at: moment().unix()
+            })
+
             apiResult = msg_helpers.SetMessage('200', 'Success reject data')
             return res.status(200).json(apiResult)
         } catch (error) {
@@ -776,6 +801,37 @@ class AbsenController {
             apiResult = msg_helpers.SetMessage('200', 'Success get data')
             apiResult.data = data
             return res.status(500).json(apiResult)
+        } catch (error) {
+            apiResult = msg_helpers.SetMessage('500', error.message)
+            return res.status(500).json(apiResult)
+        }
+    }
+    async InboxList(req, res) {
+        let apiResult = {}
+        try {
+            const {user_id} = req.query
+            const input = {
+                user_id
+            }
+            const rules = {
+                user_id: 'required',
+            }
+            const inputValidation = new validator(input, rules)
+            if(inputValidation.fails()) {
+                apiResult = msg_helpers.SetMessage('400', Object.values(inputValidation.errors.all())[0][0]) // get first message
+                return res.status(200).json(apiResult)
+            }
+
+            const data = await AbsenModel.InboxList(user_id)
+            if (data.length == 0) {
+                apiResult = msg_helpers.SetMessage('404', 'Data not found!')
+                apiResult.data = []
+                return res.status(200).json(apiResult)
+            }
+
+            apiResult = msg_helpers.SetMessage('200', 'Get data has success full!')
+            apiResult.data = data
+            return res.status(200).json(apiResult)
         } catch (error) {
             apiResult = msg_helpers.SetMessage('500', error.message)
             return res.status(500).json(apiResult)

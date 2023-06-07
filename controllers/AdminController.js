@@ -148,7 +148,6 @@ class AdminController {
                 password,
                 fcm_token,
             }
-            console.log(input);
             const rules = {
                 email: 'required|email|max:45',
                 password: 'required|max:50',

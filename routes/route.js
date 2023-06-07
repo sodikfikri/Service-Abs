@@ -27,6 +27,8 @@ exports.routesConfig = function(app) {
     app.post(`/${PREFIX}/admin/cuti/approve`, AuthMiddleware, AbsenController.PermissionApprove)
     app.post(`/${PREFIX}/admin/cuti/reject`, AuthMiddleware, AbsenController.PermissionReject)
 
+    app.get(`/${PREFIX}/user/inbox`, AuthMiddleware, AbsenController.InboxList)
+
     // abs for admin
     app.get(`/${PREFIX}/admin/dsb`, AuthMiddleware, AbsenController.AdminSummaryDashboard)
     app.get(`/${PREFIX}/admin/divisi/ddl`, AuthMiddleware, AdminController.DiveiDDL)
