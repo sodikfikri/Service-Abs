@@ -7,6 +7,9 @@ class AbsenModel {
     static GetSummaryData(user_id, start_date, end_date) {
         return new Promise(async (resolve, reject) => {
             try {
+                // console.log('user id: ', user_id);
+                // console.log('start date: ', start_date);
+                // console.log('end date', end_date);
                 const sql_presence = `SELECT * FROM service_abs.presensi WHERE user_id = ${user_id} AND status = 2 AND is_valid = 1 AND (generated_date BETWEEN '${start_date}' AND '${end_date}') GROUP BY generated_date`;
                 const result_presence = await mysql_helpers.query(DB, sql_presence)
 
@@ -32,7 +35,6 @@ class AbsenModel {
             try {
                 const cats = type == 1 ? 'abs.in = 1' : 'abs.out = 1'
                 const query = `SELECT abs.* FROM service_abs.presensi abs WHERE abs.user_id = ${user_id} AND abs.generated_date = '${date}' AND ${cats}`;
-                console.log(query);
                 const result = await mysql_helpers.query(DB, query)
                 resolve(result)
             } catch (error) {
@@ -201,6 +203,17 @@ class AbsenModel {
             }
         })
     }
+    static PermissionStatusCek(cuti_id) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const query = 'SELECT * FROM cuti WHERE id = ? AND status = 1'
+                const result = await mysql_helpers.query(DB, query, [cuti_id])
+                resolve(result)
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
     static PerminssionReject(data, cuti_id) {
         return new Promise(async (resolve, reject) => {
             try {
@@ -227,9 +240,10 @@ class AbsenModel {
                                     ON presensi.status = status.id 
                                 JOIN users
                                     ON presensi.user_id = users.id
-                                WHERE FROM_UNIXTIME(presensi.created_at, "%Y-%m-%d") BETWEEN '${data.start_date}' AND '${data.end_date}' ${status}`
-                console.log(query);
+                                WHERE FROM_UNIXTIME(presensi.created_at, "%Y-%m-%d") BETWEEN "${data.start_date}" AND "${data.end_date}" ${status}`
+                // const query = `select * from presensi`
                 const result = await mysql_helpers.query(DB, query)
+                console.log(result);
                 if (result.length != 0) {
                     for(let key in result) {
                         result[key].generated_date = moment(result[key].generated_date).format('YYYY-MM-DD')
@@ -247,6 +261,7 @@ class AbsenModel {
                 let status = data.status != 0 ? `AND status IN (${data.status})` : ``
                 let query = `SELECT cuti.*, users.fullname user_name, status.name status_name FROM service_abs.cuti JOIN status ON cuti.status = status.id JOIN users ON cuti.user_id = users.id
                             WHERE FROM_UNIXTIME(cuti.created_at, "%Y-%m-%d") BETWEEN '${data.start_date}' AND '${data.end_date}' ${status}`
+                
                 const result = await mysql_helpers.query(DB, query)
                 if (result.length != 0) {
                     for(let key in result) {
@@ -365,6 +380,29 @@ class AbsenModel {
                 }
 
                 resolve(response)
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
+    static InsInbox(table, data) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const result = await mysql_helpers.insert(table, data)
+                resolve({
+                    type: 'success',
+                    result
+                });
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
+    static InboxList(user_id) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const data = await mysql_helpers.query(DB, `SELECT title, body, reason, FROM_UNIXTIME(created_at, "%Y-%m-%d %H:%i:%s") time_format FROM inbox WHERE user_id = ?`, [user_id])
+                resolve(data)
             } catch (error) {
                 reject(error)
             }

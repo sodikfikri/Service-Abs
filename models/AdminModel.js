@@ -1,5 +1,6 @@
 const mysql_helpers = require('../helpers/mysql_helpers')
 const DB            = require('../helpers/db_helpers')
+const moment        = require('moment')
 
 class AdminModel {
 
@@ -98,7 +99,7 @@ class AdminModel {
     static GetListDivisi() {
         return new Promise(async (resolve, reject) => {
             try {
-                const result = await mysql_helpers.query(DB, 'SELECT * FROM divisi')
+                const result = await mysql_helpers.query(DB, 'SELECT id, name, is_active, FROM_UNIXTIME(created_at, "%Y-%m-%d %H:%i:%s") created_at, FROM_UNIXTIME(updated_at, "%Y-%m-%d %H:%i:%s") updated_at FROM divisi')
                 resolve(result)
             } catch (error) {
                 reject(error)
@@ -136,6 +137,17 @@ class AdminModel {
             try {
                 const query = `SELECT id, name FROM divisi WHERE is_active = 1`
                 const result = await mysql_helpers.query(DB, query)
+                resolve(result)
+            } catch (error) {
+                reject(error)
+            }
+        })
+    }
+    static CekUserIsDeleted(email) {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const query = `SELECT * FROM users where email = ? and deleted_at = 0`
+                const result = await mysql_helpers.query(DB, query, [email])
                 resolve(result)
             } catch (error) {
                 reject(error)

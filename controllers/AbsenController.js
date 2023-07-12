@@ -12,8 +12,8 @@ class AbsenController {
         let apiResult = {}
         try {
             const startOfMonth = moment().startOf('month').format('YYYY-MM-DD');
-            const oneDayAgo = moment().subtract(1, 'day').format('YYYY-MM-DD');
-            
+            const oneDayAgo = moment().add(1, 'days').format('YYYY-MM-DD');
+            // return res.json(oneDayAgo)
             const data = await AbsenModel.GetSummaryData(req.auth.id, startOfMonth, oneDayAgo);
 
             apiResult = msg_helpers.SetMessage('200', 'Success get data');
@@ -35,6 +35,7 @@ class AbsenController {
                 type,
                 location,
             }
+            
             const rules = {
                 user_id: 'required|integer',
                 generated_date: 'required',
@@ -395,7 +396,11 @@ class AbsenController {
                 apiResult = msg_helpers.SetMessage('400', 'Jatah cuti tidak cukup!')
                 return res.status(200).json(apiResult)
             }
-
+            let PermissionSttsCK = await AbsenModel.PermissionStatusCek(params.cuti_id)
+            if (PermissionSttsCK.length == 0) {
+                apiResult = msg_helpers.SetMessage('400', 'data status must be "need approve"!')
+                return res.status(200).json(apiResult)
+            }
             let approve = await AbsenModel.PermissionApprove(params)
             if (approve.type != 'success') {
                 apiResult = msg_helpers.SetMessage('400', 'Fail to approve data!')
@@ -505,6 +510,7 @@ class AbsenController {
                 end_date,
                 status,
             }
+            // console.log(input);
             const rules = {
                 start_date: 'required',
                 end_date: 'required',
@@ -521,6 +527,7 @@ class AbsenController {
                 end_date,
                 status
             }
+            // return res.json(params)
             const _data = await AbsenModel.GetListAbs(params)
             // return res.json(_data)
             let dataArr = [], groupDate = []
@@ -649,7 +656,7 @@ class AbsenController {
                 end_date
             }
             const _data = await AbsenModel.GetAbsData(params)
-            // return res.json(_data)
+            
             let _arr_group = functionEx.ArrGroup(_data, 'user_id')
             // return res.json(_arr_group)
             for(let _val of _arr_group) {

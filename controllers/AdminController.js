@@ -172,6 +172,11 @@ class AdminController {
                 apiResult = msg_helpers.SetMessage('400', 'Account has been deleted!')
                 return res.status(200).json(apiResult)
             }
+            const userCekIsdeleted = await AdminModel.CekUserIsDeleted(email)
+            if (userCekIsdeleted.length == 0) {
+                apiResult = msg_helpers.SetMessage('400', 'Account has been deleted!')
+                return res.status(200).json(apiResult)
+            }
             const isMatch = await password_helper.compare(password, find[0].password)
             if (!isMatch) {
                 apiResult = msg_helpers.SetMessage('400', 'Your password is wrong!')
@@ -468,14 +473,16 @@ class AdminController {
     async UpdateDivisi(req, res) {
         let apiResult = {}
         try {
-            const {id, name} = req.body
+            const {id, name, status} = req.body
             const input = {
                 id,
-                name
+                name,
+                status
             }
             const rules = {
                 id: 'required|integer',
-                name: 'required|max:50'
+                name: 'required|max:50',
+                status: 'required',
             }
             const inputValidation = new validator(input, rules)
             if(inputValidation.fails()) {
@@ -484,7 +491,8 @@ class AdminController {
             }
             const params = {
                 name: name,
-                updated_at: moment().unix()
+                updated_at: moment().unix(),
+                is_active: status
             }
             const doChange = await AdminModel.UptDivisi(id, params)
             if (doChange.type != 'success') {
