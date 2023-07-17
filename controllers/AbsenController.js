@@ -246,8 +246,13 @@ class AbsenController {
             }
             // cek abs data
             let CK = await AbsenModel.CkApprove(presence_id)
+            // console.log('presence cek: ', CK);
             if (CK.length == 0) {
                 apiResult = msg_helpers.SetMessage('400', 'Data not found!')
+                return res.status(200).json(apiResult)
+            }
+            if (CK[0].status != 1) {
+                apiResult = msg_helpers.SetMessage('400', 'Status data is wrong!')
                 return res.status(200).json(apiResult)
             }
             // cek usr data
@@ -316,6 +321,10 @@ class AbsenController {
                 apiResult = msg_helpers.SetMessage('400', 'Data not found!')
                 return res.status(200).json(apiResult)
             }
+            if (CK[0].status != 1) {
+                apiResult = msg_helpers.SetMessage('400', 'Status data is wrong!')
+                return res.status(200).json(apiResult)
+            }
             // cek usr data
             const usrCk = await AdminModel.UserCekData('id', CK[0].user_id)
             if (usrCk.length == 0) {
@@ -377,6 +386,10 @@ class AbsenController {
             const Ck = await AbsenModel.LeavePermissionCk(cuti_id)
             if (Ck.length == 0) {
                 apiResult = msg_helpers.SetMessage('404', 'Data not found!')
+                return res.status(200).json(apiResult)
+            }
+            if (Ck[0].status != 1) {
+                apiResult = msg_helpers.SetMessage('400', 'Status data is wrong!')
                 return res.status(200).json(apiResult)
             }
             params.cuti_id = cuti_id
@@ -456,6 +469,10 @@ class AbsenController {
             const Ck = await AbsenModel.LeavePermissionCk(cuti_id)
             if (Ck.length == 0) {
                 apiResult = msg_helpers.SetMessage('404', 'Data not found!')
+                return res.status(200).json(apiResult)
+            }
+            if (Ck[0].status != 1) {
+                apiResult = msg_helpers.SetMessage('400', 'Status data is wrong!')
                 return res.status(200).json(apiResult)
             }
             const usrCk = await AdminModel.UserCekData('id', Ck[0].user_id)

@@ -122,7 +122,8 @@ class AdminModel {
     static DeleteDivisi(id, data) {
         return new Promise(async (resolve, reject) => {
             try {
-                const result = await mysql_helpers.update('divisi', data, 'id', id)
+                // const result = await mysql_helpers.update('divisi', data, 'id', id)
+                const result = await mysql_helpers.delete('divisi', 'id', id)
                 resolve({
                     type: 'success',
                     result
