@@ -1,5 +1,6 @@
 const AbsenController   = require("../controllers/AbsenController")
 const AdminController   = require("../controllers/AdminController")
+const ChatController = require("../controllers/ChatController")
 const AuthMiddleware    = require("../middleware/AuthMiddleware")
 
 const PREFIX = process.env.API_PREFIX
@@ -27,10 +28,12 @@ exports.routesConfig = function(app) {
     app.post(`/${PREFIX}/admin/cuti/approve`, AuthMiddleware, AbsenController.PermissionApprove)
     app.post(`/${PREFIX}/admin/cuti/reject`, AuthMiddleware, AbsenController.PermissionReject)
 
+    app.get(`/${PREFIX}/user/inbox`, AuthMiddleware, AbsenController.InboxList)
+
     // abs for admin
     app.get(`/${PREFIX}/admin/dsb`, AuthMiddleware, AbsenController.AdminSummaryDashboard)
     app.get(`/${PREFIX}/admin/divisi/ddl`, AuthMiddleware, AdminController.DiveiDDL)
-    app.get(`/${PREFIX}/admin/user_list`, AuthMiddleware, AdminController.UserList)
+    app.get(`/${PREFIX}/admin/user_list`, AdminController.UserList)
     app.get(`/${PREFIX}/admin/user_detail`, AuthMiddleware, AdminController.UserDetail)
     app.get(`/${PREFIX}/admin/presence_list`, AuthMiddleware, AbsenController.AbsList)
     app.get(`/${PREFIX}/admin/cuti_list`, AuthMiddleware, AbsenController.ListCuti)
@@ -38,5 +41,9 @@ exports.routesConfig = function(app) {
     app.get(`/${PREFIX}/admin/cuti/recap`, AuthMiddleware, AbsenController.PermissionRecap)
     app.put(`/${PREFIX}/admin/edit_user`, AuthMiddleware, AdminController.UserEdit)
     app.delete(`/${PREFIX}/admin/delete_user`, AuthMiddleware, AdminController.UserDelete)
+
+
+
+    app.post(`/${PREFIX}/chat/test`, ChatController.ChatCallback)
 
 }

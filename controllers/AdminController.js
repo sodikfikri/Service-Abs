@@ -69,6 +69,7 @@ class AdminController {
             }
             
             apiResult = msg_helpers.SetMessage('201', 'Success insert user data')
+            console.log('User regis: ', apiResult);
             return res.status(201).json(apiResult)
             
         } catch (error) {
@@ -148,7 +149,6 @@ class AdminController {
                 password,
                 fcm_token,
             }
-            console.log(input);
             const rules = {
                 email: 'required|email|max:45',
                 password: 'required|max:50',
@@ -165,11 +165,16 @@ class AdminController {
                 apiResult = msg_helpers.SetMessage('400', 'Account not found!')
                 return res.status(200).json(apiResult)
             }
-            if (find[0].is_active == 2) {
+            if (find[0].is_active == 0) {
                 apiResult = msg_helpers.SetMessage('400', 'Account Inactive!')
                 return res.status(200).json(apiResult)
             }
             if (find[0].deleted_at != 0) {
+                apiResult = msg_helpers.SetMessage('400', 'Account has been deleted!')
+                return res.status(200).json(apiResult)
+            }
+            const userCekIsdeleted = await AdminModel.CekUserIsDeleted(email)
+            if (userCekIsdeleted.length == 0) {
                 apiResult = msg_helpers.SetMessage('400', 'Account has been deleted!')
                 return res.status(200).json(apiResult)
             }
@@ -207,6 +212,7 @@ class AdminController {
                 email,
                 password,
             }
+            // return res.json(input)
             const rules = {
                 email: 'required|email|max:45',
                 password: 'required|max:50',
@@ -469,14 +475,16 @@ class AdminController {
     async UpdateDivisi(req, res) {
         let apiResult = {}
         try {
-            const {id, name} = req.body
+            const {id, name, status} = req.body
             const input = {
                 id,
-                name
+                name,
+                status
             }
             const rules = {
                 id: 'required|integer',
-                name: 'required|max:50'
+                name: 'required|max:50',
+                status: 'required',
             }
             const inputValidation = new validator(input, rules)
             if(inputValidation.fails()) {
@@ -485,7 +493,8 @@ class AdminController {
             }
             const params = {
                 name: name,
-                updated_at: moment().unix()
+                updated_at: moment().unix(),
+                is_active: status
             }
             const doChange = await AdminModel.UptDivisi(id, params)
             if (doChange.type != 'success') {

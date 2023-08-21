@@ -3,8 +3,23 @@ require("dotenv").config({ path: path.join(__dirname, ".env") })
 const express = require("express")
 const bodyParser = require("body-parser")
 const app = express()
+const fs = require("fs")
+// const cors = require('cors')
 
 const routes = require("./routes")
+
+// console.log('SOCKET PORT: ', process.env.SOCKET_PORT);
+const socket = require('socket.io')(process.env.SOCKET_PORT, {
+  cors: {
+    origin: "*",
+    methods: ["PUT", "GET", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: ["authorization", "origin", "user-token", "x-requested-with", "content-type"],
+  }
+})
+app.use(function (req, res, next) {
+  req.io = socket
+  next()
+})
 
 app.use(
     bodyParser.urlencoded({
@@ -20,7 +35,7 @@ app.use(
         type: () => true,
     })
 )
-
+// app.use(cors)
 app.use(function (req, res, next) {
     res.header("Access-Control-Allow-Origin", "*")
     res.header("Access-Control-Allow-Credentials", "true")
@@ -33,6 +48,11 @@ app.use(function (req, res, next) {
       return next()
     }
 })
+
+// const credential = {
+//   cert: fs.readFileSync("./server.pem"),
+//   key: fs.readFileSync("./server.key")
+// }
 
 routes.routesConfig(app)
 
